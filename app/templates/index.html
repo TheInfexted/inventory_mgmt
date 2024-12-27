@@ -1,0 +1,220 @@
+<!-- app/templates/index.html -->
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block header %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<!-- Statistics Cards -->
+<div class="row g-4 mb-4">
+    <!-- Total Products Card -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted mb-2">TOTAL PRODUCTS</h6>
+                        <h2 class="mb-0">{{ total_products }}</h2>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="bg-primary bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-box text-primary fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Categories Card -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted mb-2">TOTAL CATEGORIES</h6>
+                        <h2 class="mb-0">{{ total_categories }}</h2>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="bg-success bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-tags text-success fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Items Card -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted mb-2">LOW STOCK ITEMS</h6>
+                        <h2 class="mb-0">{{ low_stock_count }}</h2>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="bg-warning bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-exclamation-triangle text-warning fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total Transactions Card -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="text-muted mb-2">TOTAL TRANSACTIONS</h6>
+                        <h2 class="mb-0">{{ total_transactions }}</h2>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <div class="bg-info bg-opacity-10 rounded-3 p-3">
+                            <i class="bi bi-arrow-left-right text-info fs-3"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Products Section -->
+<div class="row g-4">
+    <div class="col-xl-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <div class="d-flex align-items-center">
+                    <h5 class="card-title mb-0 flex-grow-1">Recent Products</h5>
+                    <a href="{{ url_for('main.product_list') }}" class="btn btn-sm btn-primary">
+                        View All
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in recent_products %}
+                            <tr>
+                                <td>{{ product.name }}</td>
+                                <td>
+                                    <span class="badge bg-light text-dark">
+                                        {{ product.category.name }}
+                                    </span>
+                                </td>
+                                <td>RM{{ "%.2f"|format(product.price) }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if product.stock_quantity > 10 else 'warning' if product.stock_quantity > 0 else 'danger' }}">
+                                        {{ product.stock_quantity }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Products Section -->
+    <div class="col-xl-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <h5 class="card-title mb-0">Low Stock Alert</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for product in low_stock_products %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ product.name }}</h6>
+                                <small class="text-muted">{{ product.category.name }}</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="mb-1">
+                                    <span class="badge bg-danger">
+                                        {{ product.stock_quantity }} left
+                                    </span>
+                                </div>
+                                <button class="btn btn-sm btn-primary" onclick="quickStock({{ product.id }}, '{{ product.name }}', {{ product.stock_quantity }})">
+                                    <i class="bi bi-plus-lg"></i> Add Stock
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center py-4">
+                        <i class="bi bi-check-circle text-success fs-1"></i>
+                        <p class="mb-0 mt-2">All products have sufficient stock</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+let currentProductId = null;
+const quickStockModal = new bootstrap.Modal(document.getElementById('quickStockModal'));
+
+function quickStock(productId, productName, currentStockLevel) {
+    currentProductId = productId;
+    document.getElementById('productName').textContent = productName;
+    document.getElementById('currentStock').textContent = currentStockLevel;
+    document.getElementById('stockQuantity').value = '';
+    quickStockModal.show();
+}
+
+async function submitQuickStock() {
+    const quantity = parseInt(document.getElementById('stockQuantity').value);
+    
+    if (!quantity || quantity <= 0) {
+        alert('Please enter a valid quantity');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/products/${currentProductId}/quick-stock`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ quantity: quantity })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok) {
+            window.location.reload();  // Refresh to show updated stock
+        } else {
+            alert(data.message || 'Error updating stock');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while updating stock');
+    }
+    
+    quickStockModal.hide();
+}
+</script>
+{% endblock %}

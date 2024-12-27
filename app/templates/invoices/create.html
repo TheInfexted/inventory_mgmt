@@ -1,0 +1,196 @@
+<!-- templates/invoices/create.html -->
+{% extends "base.html" %}
+
+{% block title %}Create Invoice{% endblock title %}
+
+{% block header %}Create New Invoice{% endblock header %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form id="invoiceForm" onsubmit="submitInvoice(event)">
+            <!-- Customer Information -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5>Customer Information</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Customer Name</label>
+                        <input type="text" class="form-control" id="customerName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="customerEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" id="customerAddress" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Selection -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h5>Products</h5>
+                    <div id="productList">
+                        <!-- Product rows will be added here -->
+                    </div>
+                    <button type="button" class="btn btn-outline-primary mt-3" onclick="addProductRow()">
+                        <i class="bi bi-plus-lg"></i> Add Product
+                    </button>
+                </div>
+            </div>
+
+            <!-- Totals -->
+            <div class="row">
+                <div class="col-md-6 offset-md-6">
+                    <table class="table">
+                        <tr>
+                            <th>Subtotal:</th>
+                            <td class="text-end" id="subtotal">RM0.00</td>
+                        </tr>
+                        <tr>
+                            <th>Total:</th>
+                            <td class="text-end" id="total">RM0.00</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{{ url_for('main.invoice_list') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Create Invoice</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Product Row Template -->
+<template id="productRowTemplate">
+    <div class="row mb-3 product-row">
+        <div class="col-md-4">
+            <select class="form-select product-select" required onchange="updatePrice(this)">
+                <option value="">Select Product</option>
+                {% for product in products %}
+                <option value="{{ product.id }}" 
+                        data-price="{{ product.price }}"
+                        data-stock="{{ product.stock_quantity }}">
+                    {{ product.name }} (Stock: {{ product.stock_quantity }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <input type="number" class="form-control quantity-input" 
+                   min="1" required placeholder="Quantity" 
+                   onchange="updateSubtotal(this)">
+        </div>
+        <div class="col-md-2">
+            <input type="number" class="form-control price-input" 
+                   readonly placeholder="Price">
+        </div>
+        <div class="col-md-2">
+            <input type="number" class="form-control subtotal-input" 
+                   readonly placeholder="Subtotal">
+        </div>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-danger" onclick="removeProductRow(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addProductRow() {
+    const template = document.getElementById('productRowTemplate');
+    const productList = document.getElementById('productList');
+    const clone = template.content.cloneNode(true);
+    productList.appendChild(clone);
+    updateTotals();
+}
+
+function removeProductRow(button) {
+    button.closest('.product-row').remove();
+    updateTotals();
+}
+
+function updatePrice(select) {
+    const row = select.closest('.product-row');
+    const option = select.selectedOptions[0];
+    const price = option.dataset.price;
+    row.querySelector('.price-input').value = price;
+    updateSubtotal(row.querySelector('.quantity-input'));
+}
+
+function updateSubtotal(input) {
+    const row = input.closest('.product-row');
+    const quantity = input.value;
+    const price = row.querySelector('.price-input').value;
+    const subtotal = quantity * price;
+    row.querySelector('.subtotal-input').value = subtotal.toFixed(2);
+    updateTotals();
+}
+
+function updateTotals() {
+    let total = 0;
+    document.querySelectorAll('.subtotal-input').forEach(input => {
+        total += parseFloat(input.value || 0);
+    });
+    document.getElementById('subtotal').textContent = `$${total.toFixed(2)}`;
+    document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+}
+
+async function submitInvoice(event) {
+    event.preventDefault();
+    
+    const items = [];
+    document.querySelectorAll('.product-row').forEach(row => {
+        const productSelect = row.querySelector('.product-select');
+        if (productSelect.value) {
+            items.push({
+                product_id: parseInt(productSelect.value),
+                quantity: parseInt(row.querySelector('.quantity-input').value),
+                unit_price: parseFloat(row.querySelector('.price-input').value)
+            });
+        }
+    });
+
+    const data = {
+        customer_name: document.getElementById('customerName').value,
+        customer_email: document.getElementById('customerEmail').value,
+        customer_address: document.getElementById('customerAddress').value,
+        total_amount: parseFloat(document.getElementById('total').textContent.replace('$', '')),
+        items: items
+    };
+
+    try {
+        const response = await fetch('{{ url_for("main.invoice_create") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            window.location.href = '{{ url_for("main.invoice_list") }}';
+        } else {
+            alert(result.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while creating the invoice');
+    }
+}
+
+// Add first product row on page load
+document.addEventListener('DOMContentLoaded', function() {
+    addProductRow();
+});
+</script>
+{% endblock %}

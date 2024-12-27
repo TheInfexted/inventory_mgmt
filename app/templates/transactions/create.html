@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}New Transaction{% endblock title %}
+
+{% block header %}New Transaction{% endblock header %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="POST" id="transactionForm" onsubmit="handleSubmit(event)">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="product_id" class="form-label">Product</label>
+                        <select class="form-select" id="product_id" name="product_id" required onchange="updateCurrentStock()">
+                            <option value="">Select Product</option>
+                            {% for product in products %}
+                            <option value="{{ product.id }}" data-stock="{{ product.stock_quantity }}">
+                                {{ product.name }} (Current Stock: {{ product.stock_quantity }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="transaction_type" class="form-label">Transaction Type</label>
+                        <select class="form-select" id="transaction_type" name="transaction_type" required onchange="validateQuantity()">
+                            <option value="add">Add Stock</option>
+                            <option value="remove">Remove Stock</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity</label>
+                        <input type="number" 
+                               class="form-control" 
+                               id="quantity" 
+                               name="quantity" 
+                               required 
+                               min="1" 
+                               onchange="validateQuantity()">
+                        <div id="quantityHelp" class="form-text text-danger"></div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="card-title">Stock Information</h6>
+                            <p class="mb-1">Current Stock: <span id="currentStock">-</span></p>
+                            <p class="mb-1">After Transaction: <span id="afterStock">-</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <a href="{{ url_for('main.transaction_list') }}" class="btn btn-secondary">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-primary" id="submitBtn">
+                    <i class="bi bi-check-circle"></i> Create Transaction
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script>
+    function updateCurrentStock() {
+        const select = document.getElementById('product_id');
+        const option = select.options[select.selectedIndex];
+        const currentStock = option.getAttribute('data-stock');
+        document.getElementById('currentStock').textContent = currentStock || '-';
+        validateQuantity();
+    }
+
+    function validateQuantity() {
+        const quantity = parseInt(document.getElementById('quantity').value) || 0;
+        const currentStock = parseInt(document.getElementById('currentStock').textContent) || 0;
+        const transactionType = document.getElementById('transaction_type').value;
+        const submitBtn = document.getElementById('submitBtn');
+        const quantityHelp = document.getElementById('quantityHelp');
+        let afterStock = currentStock;
+
+        if (transactionType === 'add') {
+            afterStock += quantity;
+        } else {
+            afterStock -= quantity;
+        }
+
+        document.getElementById('afterStock').textContent = afterStock;
+
+        if (transactionType === 'remove' && quantity > currentStock) {
+            quantityHelp.textContent = 'Not enough stock available';
+            submitBtn.disabled = true;
+        } else if (quantity <= 0) {
+            quantityHelp.textContent = 'Quantity must be greater than 0';
+            submitBtn.disabled = true;
+        } else {
+            quantityHelp.textContent = '';
+            submitBtn.disabled = false;
+        }
+    }
+
+    // Initial validation
+    document.addEventListener('DOMContentLoaded', function() {
+        updateCurrentStock();
+    });
+
+    async function handleSubmit(event) {
+        event.preventDefault();
+        const form = event.target;
+        
+        try {
+            const formData = new FormData(form);
+            const response = await fetch('{{ url_for("main.transaction_create") }}', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                // Redirect to transaction list page after successful submission
+                window.location.href = '{{ url_for("main.transaction_list") }}';
+            } else {
+                alert(data.message || 'Error creating transaction');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while creating the transaction');
+        }
+    }
+</script>
+{% endblock scripts %}

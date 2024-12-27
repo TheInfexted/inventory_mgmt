@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Monthly Sales Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Monthly Sales</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="monthlySalesChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock by Category Chart -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Stock by Category</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="stockByCategoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Transactions Chart -->
+    <div class="col-lg-12 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title">Transaction History</h5>
+                <button class="btn btn-primary" onclick="exportAnalytics()">
+                    <i class="bi bi-download"></i> Export Report
+                </button>
+            </div>
+            <div class="card-body">
+                <canvas id="transactionsChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Monthly Sales Chart
+const monthlySalesCtx = document.getElementById('monthlySalesChart').getContext('2d');
+new Chart(monthlySalesCtx, {
+    type: 'line',
+    data: {
+        labels: {{ monthly_sales_labels|tojson }},
+        datasets: [{
+            label: 'Sales (RM)',
+            data: {{ monthly_sales_data|tojson }},
+            borderColor: '#4e73df',
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true
+    }
+});
+
+// Stock by Category Chart
+const stockByCategoryCtx = document.getElementById('stockByCategoryChart').getContext('2d');
+new Chart(stockByCategoryCtx, {
+    type: 'pie',
+    data: {
+        labels: {{ category_labels|tojson }},
+        datasets: [{
+            data: {{ category_stock|tojson }},
+            backgroundColor: [
+                '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e'
+            ]
+        }]
+    }
+});
+
+// Transactions Chart
+const transactionsCtx = document.getElementById('transactionsChart').getContext('2d');
+new Chart(transactionsCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ transaction_dates|tojson }},
+        datasets: [{
+            label: 'Daily Transactions',
+            data: {{ transaction_counts|tojson }},
+            backgroundColor: '#4e73df'
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+function exportAnalytics() {
+    window.location.href = "{{ url_for('main.export_analytics') }}";
+}
+</script>
+{% endblock %}

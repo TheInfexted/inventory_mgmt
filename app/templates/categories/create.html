@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Add Category{% endblock title %}
+
+{% block header %}Add New Category{% endblock header %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="name" class="form-label">Category Name</label>
+                <input type="text" 
+                       class="form-control" 
+                       id="name" 
+                       name="name" 
+                       required
+                       placeholder="Enter category name">
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{{ url_for('main.category_list') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save Category</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock content %}

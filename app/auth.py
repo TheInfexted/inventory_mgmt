@@ -8,20 +8,18 @@ bp = Blueprint('auth', __name__)
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('main.index'))
-    
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        remember = bool(request.form.get('remember'))
-        
         user = User.query.filter_by(username=username).first()
         
         if user and user.check_password(password):
-            login_user(user, remember=remember)
-            next_page = request.args.get('next')
-            return redirect(next_page if next_page else url_for('main.index'))
+            if user.status != 'approved' and not user.is_admin:
+                flash('Your account is pending approval', 'warning')
+                return redirect(url_for('auth.login'))
+            
+            login_user(user)
+            return redirect(url_for('main.index'))
             
         flash('Invalid username or password', 'error')
     
@@ -35,38 +33,25 @@ def logout():
 
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
-    try:
-        if current_user.is_authenticated:
-            return redirect(url_for('main.index'))
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
         
-        if request.method == 'POST':
-            username = request.form.get('username')
-            email = request.form.get('email')
-            password = request.form.get('password')
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists', 'error')
+            return redirect(url_for('auth.register'))
             
-            # Debug print
-            print(f"Received registration for: {username}, {email}")
-            
-            if User.query.filter_by(username=username).first():
-                flash('Username already exists', 'error')
-                return redirect(url_for('auth.register'))
-                
-            if User.query.filter_by(email=email).first():
-                flash('Email already registered', 'error')
-                return redirect(url_for('auth.register'))
-            
-            user = User(username=username, email=email)
-            user.password_hash = generate_password_hash(password)
-            
-            db.session.add(user)
-            db.session.commit()
-            
-            flash('Registration successful! Please login.', 'success')
-            return redirect(url_for('auth.login'))
-            
-    except Exception as e:
-        print(f"Registration error: {str(e)}")
-        db.session.rollback()
-        flash('An error occurred during registration', 'error')
+        if User.query.filter_by(email=email).first():
+            flash('Email already registered', 'error')
+            return redirect(url_for('auth.register'))
+        
+        user = User(username=username, email=email, status='pending')
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        
+        flash('Registration submitted. Please wait for admin approval.', 'info')
+        return redirect(url_for('auth.login'))
     
     return render_template('auth/register.html')

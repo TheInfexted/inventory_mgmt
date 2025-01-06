@@ -1,8 +1,8 @@
 # app/routes.py
 from flask import Blueprint, render_template, jsonify, request, redirect, url_for, flash, send_file
-from flask_login import login_required
+from flask_login import login_required, current_user
 from app.extensions import db
-from app.models import Category, Product, InventoryTransaction, Invoice, InvoiceItem
+from app.models import Category, Product, InventoryTransaction, Invoice, InvoiceItem, User
 from datetime import datetime, timedelta
 from sqlalchemy import func
 import pandas as pd
@@ -27,6 +27,49 @@ def index():
                          total_transactions=total_transactions,
                          recent_products=recent_products,
                          low_stock_products=low_stock_products)
+
+@bp.route('/admin/users')
+@login_required
+def admin_users():
+    if not current_user.is_admin:
+        flash('Access denied. Admin rights required.', 'error')
+        return redirect(url_for('main.index'))
+    
+    # Get users by status
+    pending_users = User.query.filter_by(status='pending').all()
+    approved_users = User.query.filter_by(status='approved').all()
+    rejected_users = User.query.filter_by(status='rejected').all()
+    
+    return render_template('admin/users.html', 
+                         pending_users=pending_users,
+                         approved_users=approved_users,
+                         rejected_users=rejected_users)
+
+@bp.route('/admin/users/<int:id>/approve', methods=['POST'])
+@login_required
+def approve_user(id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'message': 'Access denied'})
+    
+    user = User.query.get_or_404(id)
+    user.status = 'approved'
+    db.session.commit()
+    
+    flash(f'User {user.username} has been approved', 'success')
+    return jsonify({'success': True})
+
+@bp.route('/admin/users/<int:id>/reject', methods=['POST'])
+@login_required
+def reject_user(id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'message': 'Access denied'})
+    
+    user = User.query.get_or_404(id)
+    user.status = 'rejected'
+    db.session.commit()
+    
+    flash(f'User {user.username} has been rejected', 'error')
+    return jsonify({'success': True})
 
 @bp.route('/products')
 @login_required

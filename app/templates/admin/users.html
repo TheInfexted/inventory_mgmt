@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Pending Users</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in pending_users %}
+                    <tr>
+                        <td>{{ user.username }}</td>
+                        <td>{{ user.email }}</td>
+                        <td><span class="badge bg-warning">Pending</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-success" onclick="approveUser({{ user.id }}, '{{ user.username }}')">
+                                <i class="bi bi-check-lg"></i> Approve
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="rejectUser({{ user.id }}, '{{ user.username }}')">
+                                <i class="bi bi-x-lg"></i> Reject
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center">No pending users</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Approved Users -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Approved Users</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in approved_users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="2" class="text-center">No approved users</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rejected Users -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Rejected Users</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Email</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in rejected_users %}
+                            <tr>
+                                <td>{{ user.username }}</td>
+                                <td>{{ user.email }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="2" class="text-center">No rejected users</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function approveUser(userId, username) {
+    if (confirm(`Are you sure you want to approve ${username}?`)) {
+        try {
+            const response = await fetch(`/admin/users/${userId}/approve`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                window.location.reload();
+            }
+        } catch (error) {
+            alert('Error approving user');
+        }
+    }
+}
+
+async function rejectUser(userId, username) {
+    if (confirm(`Are you sure you want to reject ${username}?`)) {
+        try {
+            const response = await fetch(`/admin/users/${userId}/reject`, {
+                method: 'POST'
+            });
+            if (response.ok) {
+                window.location.reload();
+            }
+        } catch (error) {
+            alert('Error rejecting user');
+        }
+    }
+}
+</script>
+{% endblock %}

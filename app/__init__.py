@@ -23,6 +23,9 @@ def create_app(config_class=Config):
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp)
 
+    from app.admin import bp as admin_bp
+    app.register_blueprint(admin_bp)
+
     # User loader for Flask-Login
     @login_manager.user_loader
     def load_user(id):

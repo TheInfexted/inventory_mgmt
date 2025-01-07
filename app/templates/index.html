@@ -153,7 +153,7 @@
                                         {{ product.stock_quantity }} left
                                     </span>
                                 </div>
-                                <button class="btn btn-sm btn-primary" onclick="quickStock({{ product.id }}, '{{ product.name }}', {{ product.stock_quantity }})">
+                                <button class="btn btn-sm btn-primary" onclick="quickAddStock({{ product.id }}, '{{ product.name }}')">
                                     <i class="bi bi-plus-lg"></i> Add Stock
                                 </button>
                             </div>
@@ -169,24 +169,47 @@
             </div>
         </div>
     </div>
+
+    <!-- Add Stock Modal -->
+    <div class="modal fade" id="quickStockModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Quick Add Stock</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Add stock for: <strong id="productName"></strong></p>
+                    <div class="mb-3">
+                        <label for="quantity" class="form-label">Quantity to Add</label>
+                        <input type="number" class="form-control" id="quantity" min="1">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="submitQuickStock()">Add Stock</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock content %}
 
 {% block scripts %}
+{{ super() }}
 <script>
 let currentProductId = null;
 const quickStockModal = new bootstrap.Modal(document.getElementById('quickStockModal'));
 
-function quickStock(productId, productName, currentStockLevel) {
+function quickAddStock(productId, productName) {
     currentProductId = productId;
     document.getElementById('productName').textContent = productName;
-    document.getElementById('currentStock').textContent = currentStockLevel;
-    document.getElementById('stockQuantity').value = '';
+    document.getElementById('quantity').value = '';
     quickStockModal.show();
 }
 
 async function submitQuickStock() {
-    const quantity = parseInt(document.getElementById('stockQuantity').value);
+    const quantity = parseInt(document.getElementById('quantity').value);
     
     if (!quantity || quantity <= 0) {
         alert('Please enter a valid quantity');
@@ -194,7 +217,7 @@ async function submitQuickStock() {
     }
     
     try {
-        const response = await fetch(`/products/${currentProductId}/quick-stock`, {
+        const response = await fetch(`/stock/quick-add/${currentProductId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'

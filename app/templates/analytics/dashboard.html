@@ -4,80 +4,101 @@
 
 {% block content %}
 <div class="row">
-    <!-- Monthly Sales Chart -->
-    <div class="col-lg-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title">Monthly Sales</h5>
+    <!-- Date Range Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form id="dateFilterForm" class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" 
+                           value="{{ start_date }}" max="{{ end_date }}">
+                </div>
+                <div class="col-auto">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" 
+                           value="{{ end_date }}" min="{{ start_date }}">
+                </div>
+                <div class="col-auto">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary d-block">Apply Filter</button>
+                </div>
+                <!-- Add Export Button -->
+                <div class="col-auto">
+                    <label class="form-label">&nbsp;</label>
+                    <a href="{{ url_for('main.analytics_export', start_date=start_date, end_date=end_date) }}" 
+                       class="btn btn-success d-block">
+                        <i class="bi bi-download"></i> Export Report
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+<div class="row">
+    <!-- Sales Chart -->
+    <div class="col-xl-8 col-lg-7">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Sales Overview</h6>
             </div>
             <div class="card-body">
-                <canvas id="monthlySalesChart"></canvas>
+                <div class="chart-area">
+                    <canvas id="salesChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Stock by Category Chart -->
-    <div class="col-lg-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title">Stock by Category</h5>
-            </div>
-            <div class="card-body">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Stock by Category</h6>
+        </div>
+        <div class="card-body">
+            <div class="chart-area">
                 <canvas id="stockByCategoryChart"></canvas>
             </div>
         </div>
     </div>
 
     <!-- Daily Transactions Chart -->
-    <div class="col-lg-12 mb-4">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title">Transaction History</h5>
-                <button class="btn btn-primary" onclick="exportAnalytics()">
-                    <i class="bi bi-download"></i> Export Report
-                </button>
+    <div class="col-xl-4 col-lg-5">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Daily Transactions</h6>
             </div>
             <div class="card-body">
-                <canvas id="transactionsChart"></canvas>
+                <div class="chart-area">
+                    <canvas id="transactionsChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
+{% endblock %}
 <!-- Add Chart.js -->
+{% block scripts %}
+{{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-// Monthly Sales Chart
-const monthlySalesCtx = document.getElementById('monthlySalesChart').getContext('2d');
-new Chart(monthlySalesCtx, {
+// Sales Chart
+const salesCtx = document.getElementById('salesChart').getContext('2d');
+new Chart(salesCtx, {
     type: 'line',
     data: {
         labels: {{ monthly_sales_labels|tojson }},
         datasets: [{
-            label: 'Sales (RM)',
+            label: 'Monthly Sales (RM)',
             data: {{ monthly_sales_data|tojson }},
             borderColor: '#4e73df',
             tension: 0.1
         }]
     },
     options: {
-        responsive: true
-    }
-});
-
-// Stock by Category Chart
-const stockByCategoryCtx = document.getElementById('stockByCategoryChart').getContext('2d');
-new Chart(stockByCategoryCtx, {
-    type: 'pie',
-    data: {
-        labels: {{ category_labels|tojson }},
-        datasets: [{
-            data: {{ category_stock|tojson }},
-            backgroundColor: [
-                '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e'
-            ]
-        }]
+        responsive: true,
+        maintainAspectRatio: false
     }
 });
 
@@ -90,21 +111,59 @@ new Chart(transactionsCtx, {
         datasets: [{
             label: 'Daily Transactions',
             data: {{ transaction_counts|tojson }},
-            backgroundColor: '#4e73df'
+            backgroundColor: '#1cc88a'
         }]
     },
     options: {
         responsive: true,
-        scales: {
-            y: {
-                beginAtZero: true
+        maintainAspectRatio: false
+    }
+});
+
+// Stock by Category Chart
+const stockCtx = document.getElementById('stockByCategoryChart').getContext('2d');
+new Chart(stockCtx, {
+    type: 'pie',
+    data: {
+        labels: {{ category_labels|tojson }},
+        datasets: [{
+            data: {{ category_stock|tojson }},
+            backgroundColor: [
+                '#4e73df',
+                '#1cc88a',
+                '#36b9cc',
+                '#f6c23e',
+                '#e74a3b'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right'
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        let label = context.label || '';
+                        let value = context.raw || 0;
+                        return `${label}: ${value} units`;
+                    }
+                }
             }
         }
     }
 });
 
-function exportAnalytics() {
-    window.location.href = "{{ url_for('main.export_analytics') }}";
-}
+// Date range validation
+document.getElementById('start_date').addEventListener('change', function() {
+    document.getElementById('end_date').min = this.value;
+});
+
+document.getElementById('end_date').addEventListener('change', function() {
+    document.getElementById('start_date').max = this.value;
+});
 </script>
 {% endblock %}

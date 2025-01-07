@@ -115,7 +115,8 @@ def product_edit(id):
             
     return render_template('products/edit.html', product=product, categories=categories)
 
-@bp.route('/products/<int:id>/quick-stock', methods=['POST'])
+@bp.route('/stock/quick-add/<int:id>', methods=['POST'])
+@login_required
 def quick_add_stock(id):
     try:
         data = request.get_json()
@@ -129,9 +130,6 @@ def quick_add_stock(id):
 
         product = Product.query.get_or_404(id)
         
-        # Update product stock
-        product.stock_quantity += quantity
-        
         # Create transaction record
         transaction = InventoryTransaction(
             product_id=product.id,
@@ -139,13 +137,16 @@ def quick_add_stock(id):
             transaction_type='add'
         )
         
+        # Update product stock
+        product.stock_quantity += quantity
+        
         db.session.add(transaction)
         db.session.commit()
         
         return jsonify({
             'success': True,
-            'message': f'Successfully added {quantity} units to stock',
-            'new_stock': product.stock_quantity
+            'new_stock': product.stock_quantity,
+            'message': f'Successfully added {quantity} units to stock'
         })
         
     except Exception as e:
@@ -454,23 +455,35 @@ def invoice_delete(id):
 @login_required
 def analytics():
     try:
-        # Sales/Stock Movement Analysis
-        today = datetime.now()
-        last_30_days = today - timedelta(days=30)
+        # Get date range from request parameters
+        start_date = request.args.get('start_date', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+        end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
         
-        # Daily transactions
+        # Convert string dates to datetime
+        start_datetime = datetime.strptime(start_date, '%Y-%m-%d')
+        end_datetime = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)  # Include full end date
+        
+        # Daily transactions with date filter
         daily_transactions = db.session.query(
             func.date(InventoryTransaction.timestamp).label('date'),
             func.count().label('count')
-        ).filter(InventoryTransaction.timestamp >= last_30_days)\
-        .group_by(func.date(InventoryTransaction.timestamp))\
+        ).filter(
+            InventoryTransaction.timestamp.between(start_datetime, end_datetime)
+        ).group_by(func.date(InventoryTransaction.timestamp))\
         .all()
 
-        # Process transaction data for chart
-        transaction_dates = [t.date.strftime('%Y-%m-%d') for t in daily_transactions]
-        transaction_counts = [t.count for t in daily_transactions]
+        # Monthly sales with date filter
+        monthly_sales = db.session.query(
+            func.DATE_FORMAT(Invoice.date, '%Y-%m').label('month'),
+            func.sum(Invoice.total_amount).label('total_sales')
+        ).filter(
+            Invoice.status == 'paid',
+            Invoice.date.between(start_datetime, end_datetime)
+        ).group_by('month')\
+        .order_by('month')\
+        .all()
 
-        # Stock by category
+        # Add stock by category query
         stock_by_category = db.session.query(
             Category.name,
             func.sum(Product.stock_quantity).label('total_stock')
@@ -478,40 +491,35 @@ def analytics():
         .group_by(Category.name)\
         .all()
 
-        # Process category data for chart
-        category_labels = [c.name for c in stock_by_category]
-        category_stock = [float(c.total_stock or 0) for c in stock_by_category]
-
-        # Monthly sales from invoices - Updated for MySQL
-        monthly_sales = db.session.query(
-            func.DATE_FORMAT(Invoice.date, '%Y-%m').label('month'),
-            func.sum(Invoice.total_amount).label('total_sales')
-        ).filter(Invoice.status == 'paid')\
-        .group_by(func.DATE_FORMAT(Invoice.date, '%Y-%m'))\
-        .order_by(func.DATE_FORMAT(Invoice.date, '%Y-%m'))\
-        .all()
-
-        # Process sales data for chart
-        monthly_sales_labels = [m.month for m in monthly_sales] if monthly_sales else []
-        monthly_sales_data = [float(m.total_sales or 0) for m in monthly_sales] if monthly_sales else []
+        category_labels = [item.name for item in stock_by_category]
+        category_stock = [float(item.total_stock or 0) for item in stock_by_category]
 
         return render_template('analytics/dashboard.html',
-                             transaction_dates=transaction_dates,
-                             transaction_counts=transaction_counts,
+                             start_date=start_date,
+                             end_date=end_date,
+                             transaction_dates=[t.date.strftime('%Y-%m-%d') for t in daily_transactions],
+                             transaction_counts=[t.count for t in daily_transactions],
+                             monthly_sales_labels=[m.month for m in monthly_sales],
+                             monthly_sales_data=[float(m.total_sales or 0) for m in monthly_sales],
                              category_labels=category_labels,
-                             category_stock=category_stock,
-                             monthly_sales_labels=monthly_sales_labels,
-                             monthly_sales_data=monthly_sales_data)
+                             category_stock=category_stock)
 
     except Exception as e:
-        print(f"Error in analytics: {str(e)}")  # For debugging
+        print(f"Error in analytics: {str(e)}")
         flash('Error loading analytics data', 'error')
         return redirect(url_for('main.index'))
 
 @bp.route('/analytics/export')
-def export_analytics():
+@login_required
+def analytics_export():
     try:
-        # Prepare data for Products
+        start_date = request.args.get('start_date', (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
+        end_date = request.args.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+        
+        start_datetime = datetime.strptime(start_date, '%Y-%m-%d')
+        end_datetime = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+
+        # Prepare data for export with date filter
         products_data = []
         products = Product.query.all()
         for product in products:
@@ -524,9 +532,10 @@ def export_analytics():
                 'Stock': product.stock_quantity
             })
         
-        # Prepare data for Transactions
         transactions_data = []
-        transactions = InventoryTransaction.query.all()
+        transactions = InventoryTransaction.query.filter(
+            InventoryTransaction.timestamp.between(start_datetime, end_datetime)
+        ).all()
         for transaction in transactions:
             transactions_data.append({
                 'ID': transaction.id,
@@ -545,7 +554,6 @@ def export_analytics():
             # Transactions sheet
             pd.DataFrame(transactions_data).to_excel(writer, sheet_name='Transactions', index=False)
             
-            # Get workbook and add formats
             workbook = writer.book
             
             # Add formats
@@ -556,7 +564,7 @@ def export_analytics():
                 'border': 1
             })
             
-            # Auto-adjust columns width in each sheet
+            # Auto-adjust columns width
             for sheet in writer.sheets.values():
                 for idx, col in enumerate(pd.DataFrame(products_data).columns):
                     series = pd.DataFrame(products_data)[col]
@@ -577,10 +585,11 @@ def export_analytics():
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=f'inventory_report_{datetime.now().strftime("%Y%m%d")}.xlsx'
+            download_name=f'inventory_report_{start_date}_to_{end_date}.xlsx'
         )
+    
 
     except Exception as e:
-        print(f"Export error: {str(e)}")  # For debugging
+        print(f"Export error: {str(e)}")
         flash('Error exporting report', 'error')
         return redirect(url_for('main.analytics'))
